@@ -34,6 +34,8 @@ from bertopic import plotting
 # Visualization
 import plotly.graph_objects as go
 
+import pymorphy2
+
 logger = MyLogger("WARNING")
 
 
@@ -221,6 +223,60 @@ class BERTopic:
         """
         self.fit_transform(documents, embeddings, y)
         return self
+
+    def get_embeddings(self,
+                      documents: List[str]):
+        check_documents_type(documents)
+
+        documents = pd.DataFrame({"Document": documents,
+                                  "ID": range(len(documents)),
+                                  "Topic": None})
+
+        # Extract embeddings
+        self.embedding_model = select_backend(self.embedding_model,
+                                                language=self.language)
+        embeddings = self._extract_embeddings(documents.Document,
+                                                method="document",
+                                                verbose=self.verbose)
+        logger.info("Transformed documents to Embeddings")
+        return embeddings
+
+    def umap(self, 
+            embeddings: np.ndarray = None,
+            y: Union[List[int], np.ndarray] = None):
+
+        if self.seed_topic_list is not None and self.embedding_model is not None:
+            y, embeddings = self._guided_topic_modeling(embeddings)
+        umap_embeddings = self._reduce_dimensionality(embeddings, y)
+        return umap_embeddings
+
+    def cluster(self,
+                    umap_embeddings: np.ndarray,
+                    documents: pd.DataFrame) -> Tuple[pd.DataFrame,
+                                                        np.ndarray]:
+        """ Cluster UMAP embeddings with HDBSCAN
+
+        Arguments:
+            umap_embeddings: The reduced sentence embeddings with UMAP
+            documents: Dataframe with documents and their corresponding IDs
+
+        Returns:
+            documents: Updated dataframe with documents and their corresponding IDs
+                       and newly added Topics
+            probabilities: The distribution of probabilities
+        """
+        self.hdbscan_model.fit(umap_embeddings)
+        documents['Topic'] = self.hdbscan_model.labels_
+        probabilities = self.hdbscan_model.probabilities_
+
+        if self.calculate_probabilities:
+            probabilities = hdbscan.all_points_membership_vectors(self.hdbscan_model)
+
+        self._update_topic_size(documents)
+        self._save_representative_docs(documents)
+        self.topic_mapper = TopicMapper(self.hdbscan_model)
+        logger.info("Clustered UMAP embeddings with HDBSCAN")
+        return documents, probabilities
 
     def fit_transform(self,
                       documents: List[str],
@@ -1838,7 +1894,7 @@ class BERTopic:
 
         return probabilities
 
-    def _preprocess_text(self, documents: np.ndarray) -> List[str]:
+    def _preprocess_text(self, documents: np.ndarray) -> List[str]: 
         """ Basic preprocessing of text
 
         Steps:
@@ -1851,6 +1907,14 @@ class BERTopic:
         cleaned_documents = [doc.replace("\t", " ") for doc in cleaned_documents]
         if self.language == "english":
             cleaned_documents = [re.sub(r'[^A-Za-z0-9 ]+', '', doc) for doc in cleaned_documents]
+        elif self.language == "russian":
+            cleaned_documents = [re.sub(r'[^A-Za-z0-9А-Яа-я ]+', '', doc) for doc in cleaned_documents]
+            lemmatizer = pymorphy2.MorphAnalyzer()
+            
+            def normalize(doc):
+                return " ".join([lemmatizer.parse(t)[0].normal_form for t in doc.split()])
+
+            cleaned_documents = [normalize(doc) for doc in documents]
         cleaned_documents = [doc if doc != "" else "emptydoc" for doc in cleaned_documents]
         return cleaned_documents
 
