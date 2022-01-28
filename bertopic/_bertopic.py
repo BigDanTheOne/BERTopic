@@ -67,7 +67,7 @@ class BERTopic:
     topic_model = BERTopic(embedding_model=sentence_model)
     ```
 
-    Due to the stochastisch nature of UMAP, the results from BERTopic might differ
+    Due to the f nature of UMAP, the results from BERTopic might differ
     and the quality can degrade. Using your own embeddings allows you to
     try out BERTopic several times until you find the topics that suit
     you best.
@@ -87,6 +87,7 @@ class BERTopic:
                  hdbscan_model: hdbscan.HDBSCAN = None,
                  vectorizer_model: CountVectorizer = None,
                  verbose: bool = False,
+                 num_representative_docs: int = 3
                  ):
         """BERTopic initialization
 
@@ -149,6 +150,7 @@ class BERTopic:
         self.diversity = diversity
         self.verbose = verbose
         self.seed_topic_list = seed_topic_list
+        self.num_representative_docs = num_representative_docs
 
         # Embedding model
         self.language = language if not embedding_model else None
@@ -1547,8 +1549,10 @@ class BERTopic:
                     max_lambda = raw_tree['lambda_val'][raw_tree['parent'] == leaf].max()
                     points = raw_tree['child'][(raw_tree['parent'] == leaf) & (raw_tree['lambda_val'] == max_lambda)]
                     result = np.hstack((result, points))
-
-                representative_docs[topic] = list(np.random.choice(result, 3, replace=False).astype(int))
+                if self.num_representative_docs == -1:
+                    representative_docs[topic] = list(result)
+                else:
+                    representative_docs[topic] = list(np.random.choice(result, self.num_representative_docs, replace=False).astype(int))
 
         # Convert indices to documents
         self.representative_docs = {topic: [documents.iloc[doc_id].Document for doc_id in doc_ids]
@@ -1910,7 +1914,7 @@ class BERTopic:
         elif self.language == "russian":
             cleaned_documents = [re.sub(r'[^A-Za-z0-9А-Яа-я ]+', '', doc) for doc in cleaned_documents]
             lemmatizer = pymorphy2.MorphAnalyzer()
-            
+
             def normalize(doc):
                 return " ".join([lemmatizer.parse(t)[0].normal_form for t in doc.split()])
 
