@@ -35,6 +35,7 @@ from bertopic import plotting
 import plotly.graph_objects as go
 
 import pymorphy2
+from sklearn.decomposition import PCA
 
 logger = MyLogger("WARNING")
 
@@ -87,7 +88,9 @@ class BERTopic:
                  hdbscan_model: hdbscan.HDBSCAN = None,
                  vectorizer_model: CountVectorizer = None,
                  verbose: bool = False,
-                 num_representative_docs: int = 3
+                 num_representative_docs: int = 3,
+                 pca_umap_init: bool = False,
+                 pca_model: PCA = None
                  ):
         """BERTopic initialization
 
@@ -151,6 +154,7 @@ class BERTopic:
         self.verbose = verbose
         self.seed_topic_list = seed_topic_list
         self.num_representative_docs = num_representative_docs
+        self.pca_umap_init = pca_umap_init 
 
         # Embedding model
         self.language = language if not embedding_model else None
@@ -166,6 +170,9 @@ class BERTopic:
                                              min_dist=0.0,
                                              metric='cosine',
                                              low_memory=self.low_memory)
+
+        #PCA
+        self.pca_model = pca_model or PCA(n_components = 5)
 
         # HDBSCAN
         self.hdbscan_model = hdbscan_model or hdbscan.HDBSCAN(min_cluster_size=self.min_topic_size,
@@ -351,9 +358,12 @@ class BERTopic:
                                                       language=self.language)
 
         # Reduce dimensionality with UMAP
+        umap_init =  'spectral'
+        if self.pca_umap_init:
+            umap_init = self.pca_model.fit_transform(embeddings)
         if self.seed_topic_list is not None and self.embedding_model is not None:
             y, embeddings = self._guided_topic_modeling(embeddings)
-        umap_embeddings = self._reduce_dimensionality(embeddings, y)
+        umap_embeddings = self._reduce_dimensionality(embeddings, y, init = umap_init)
 
         # Cluster UMAP embeddings with HDBSCAN
         documents, probabilities = self._cluster_embeddings(umap_embeddings, documents)
@@ -1416,7 +1426,8 @@ class BERTopic:
 
     def _reduce_dimensionality(self,
                                embeddings: Union[np.ndarray, csr_matrix],
-                               y: Union[List[int], np.ndarray] = None) -> np.ndarray:
+                               y: Union[List[int], np.ndarray] = None,
+                               init: Union[np.ndarray, str] = 'spectral') -> np.ndarray:
         """ Reduce dimensionality of embeddings using UMAP and train a UMAP model
 
         Arguments:
@@ -1430,7 +1441,8 @@ class BERTopic:
             self.umap_model = UMAP(n_neighbors=15,
                                    n_components=5,
                                    metric='hellinger',
-                                   low_memory=self.low_memory).fit(embeddings, y=y)
+                                   low_memory=self.low_memory,
+                                   init = init).fit(embeddings, y=y)
         else:
             self.umap_model.fit(embeddings, y=y)
         umap_embeddings = self.umap_model.transform(embeddings)
@@ -1912,7 +1924,7 @@ class BERTopic:
         if self.language == "english":
             cleaned_documents = [re.sub(r'[^A-Za-z0-9 ]+', '', doc) for doc in cleaned_documents]
         elif self.language == "russian":
-            cleaned_documents = [re.sub(r'[^A-Za-z0-9А-Яа-я ]+', '', doc) for doc in cleaned_documents]
+            cleaned_documents = [re.sub(r'[^A-Za-z0-9А-Яа-я ]+', ' ', doc) for doc in cleaned_documents]
             lemmatizer = pymorphy2.MorphAnalyzer()
 
             def normalize(doc):
