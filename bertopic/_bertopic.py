@@ -18,8 +18,14 @@ from scipy.sparse.csr import csr_matrix
 from typing import List, Tuple, Union, Mapping, Any
 
 # Models
+
+try:
+    from cuml.manifold import UMAP
+    from cuml.cluster import HDBSCAN
+except ImportError:
+    from umap import UMAP
+    from hdbscan import HDBSCAN
 import hdbscan
-from umap import UMAP
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.preprocessing import normalize
@@ -85,12 +91,13 @@ class BERTopic:
                  seed_topic_list: List[List[str]] = None,
                  embedding_model=None,
                  umap_model: UMAP = None,
-                 hdbscan_model: hdbscan.HDBSCAN = None,
+                 hdbscan_model: HDBSCAN = None,
                  vectorizer_model: CountVectorizer = None,
                  verbose: bool = False,
                  num_representative_docs: int = 3,
                  pca_umap_init: bool = False,
-                 pca_model: PCA = None
+                 pca_model: PCA = None,
+                 gpu_boosted: bool = False
                  ):
         """BERTopic initialization
 
@@ -139,7 +146,7 @@ class BERTopic:
                              sentence-transformers models:
                                * https://www.sbert.net/docs/pretrained_models.html
             umap_model: Pass in a UMAP model to be used instead of the default
-            hdbscan_model: Pass in a hdbscan.HDBSCAN model to be used instead of the default
+            hdbscan_model: Pass in a HDBSCAN model to be used instead of the default
             vectorizer_model: Pass in a CountVectorizer instead of the default
         """
         # Topic-based parameters
@@ -155,6 +162,7 @@ class BERTopic:
         self.seed_topic_list = seed_topic_list
         self.num_representative_docs = num_representative_docs
         self.pca_umap_init = pca_umap_init 
+        self.gpu_boosted = gpu_boosted
 
         # Embedding model
         self.language = language if not embedding_model else None
@@ -176,7 +184,7 @@ class BERTopic:
         self.pca_model = pca_model or PCA(n_components = 5)
 
         # HDBSCAN
-        self.hdbscan_model = hdbscan_model or hdbscan.HDBSCAN(min_cluster_size=self.min_topic_size,
+        self.hdbscan_model = hdbscan_model or HDBSCAN(min_cluster_size=self.min_topic_size,
                                                               metric='euclidean',
                                                               cluster_selection_method='eom',
                                                               prediction_data=True)
@@ -1851,7 +1859,7 @@ class BERTopic:
         else:
             embeddings = self.c_tf_idf.toarray()
         norm_data = normalize(embeddings, norm='l2')
-        predictions = hdbscan.HDBSCAN(min_cluster_size=2,
+        predictions = HDBSCAN(min_cluster_size=2,
                                       metric='euclidean',
                                       cluster_selection_method='eom',
                                       prediction_data=True).fit_predict(norm_data[1:])
@@ -2051,7 +2059,7 @@ class TopicMapper:
     Topic 1 --> Topic 11 --> Topic 4 --> etc.
 
     """
-    def __init__(self, hdbscan_model: hdbscan.HDBSCAN):
+    def __init__(self, hdbscan_model: HDBSCAN):
         """ Initalization of Topic Mapper
 
         Args:

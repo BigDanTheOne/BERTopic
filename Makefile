@@ -4,6 +4,10 @@ test:
 install:
 	python -m pip install -e .
 
+install-gpu:
+	python -m pip install -e .
+	conda create -n rapids-21.12 -c rapidsai -c nvidia -c conda-forge rapids=21.12 python=3.7 cudatoolkit=11.2 dask-sql
+
 install-test:
 	python -m pip install -e ".[test]"
 	python -m pip install -e ".[all]"
