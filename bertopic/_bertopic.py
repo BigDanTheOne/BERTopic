@@ -179,8 +179,7 @@ class BERTopic:
         self.hdbscan_model = hdbscan_model or hdbscan.HDBSCAN(min_cluster_size=self.min_topic_size,
                                                               metric='euclidean',
                                                               cluster_selection_method='eom',
-                                                              prediction_data=True,
-                                                              verbose = self.verbose)
+                                                              prediction_data=True)
 
         self.topics = None
         self.topic_mapper = None
