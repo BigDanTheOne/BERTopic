@@ -291,7 +291,8 @@ class BERTopic:
     def fit_transform(self,
                       documents: List[str],
                       embeddings: np.ndarray = None,
-                      y: Union[List[int], np.ndarray] = None) -> Tuple[List[int],
+                      y: Union[List[int], np.ndarray] = None,
+                      preprocessed_docs: List[str] = None) -> Tuple[List[int],
                                                                        Union[np.ndarray, None]]:
         """ Fit the models on a collection of documents, generate topics, and return the docs with topics
 
@@ -341,7 +342,13 @@ class BERTopic:
         check_documents_type(documents)
         check_embeddings_shape(embeddings, documents)
 
-        documents = pd.DataFrame({"Document": documents,
+        if preprocessed_docs:
+            documents = pd.DataFrame({"Document": documents,
+                                  "ID": range(len(documents)),
+                                  "Topic": None},
+                                  "Preprocessed": preprocessed_docs)
+        else:
+            documents = pd.DataFrame({"Document": documents,
                                   "ID": range(len(documents)),
                                   "Topic": None})
 
@@ -1529,7 +1536,10 @@ class BERTopic:
         Returns:
             c_tf_idf: The resulting matrix giving a value (importance score) for each word per topic
         """
-        documents_per_topic = documents.groupby(['Topic'], as_index=False).agg({'Document': ' '.join})
+        if "Preprocessed" in documents.columns:
+            documents_per_topic = documents.groupby(['Topic'], as_index=False).agg({'Document': ' '.join, "Preprocessed": ' '.join})
+        else:
+            documents_per_topic = documents.groupby(['Topic'], as_index=False).agg({'Document': ' '.join})
         logger.info("Performed groupby")
         self.c_tf_idf, words = self._c_tf_idf(documents_per_topic)
         logger.info("Performed _c_tf_idf")
@@ -1655,7 +1665,10 @@ class BERTopic:
             tf_idf: The resulting matrix giving a value (importance score) for each word per topic
             words: The names of the words to which values were given
         """
-        documents = self._preprocess_text(documents_per_topic.Document.values)
+        if "Preprocessed" in documents_per_topic.columns:
+            documents = documents_per_topic.Preprocessed.values
+        else:
+            documents = self._preprocess_text(documents_per_topic.Document.values)
         logger.info("Performed _preprocess_text")
         if fit:
             self.vectorizer_model.fit(documents)
