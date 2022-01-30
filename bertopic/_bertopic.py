@@ -345,8 +345,8 @@ class BERTopic:
         if preprocessed_docs:
             documents = pd.DataFrame({"Document": documents,
                                   "ID": range(len(documents)),
-                                  "Topic": None},
-                                  "Preprocessed": preprocessed_docs)
+                                  "Topic": None,
+                                  "Preprocessed": preprocessed_docs})
         else:
             documents = pd.DataFrame({"Document": documents,
                                   "ID": range(len(documents)),
