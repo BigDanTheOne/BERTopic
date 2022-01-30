@@ -169,7 +169,8 @@ class BERTopic:
                                              n_components=5,
                                              min_dist=0.0,
                                              metric='cosine',
-                                             low_memory=self.low_memory)
+                                             low_memory=self.low_memory,
+                                             verbose = self.verbose)
 
         #PCA
         self.pca_model = pca_model or PCA(n_components = 5)
@@ -178,7 +179,8 @@ class BERTopic:
         self.hdbscan_model = hdbscan_model or hdbscan.HDBSCAN(min_cluster_size=self.min_topic_size,
                                                               metric='euclidean',
                                                               cluster_selection_method='eom',
-                                                              prediction_data=True)
+                                                              prediction_data=True,
+                                                              verbose = self.verbose)
 
         self.topics = None
         self.topic_mapper = None
@@ -356,6 +358,7 @@ class BERTopic:
             if self.embedding_model is not None:
                 self.embedding_model = select_backend(self.embedding_model,
                                                       language=self.language)
+                logger.info("Embeddings recieved")
 
         # Reduce dimensionality with UMAP
         umap_init =  'spectral'
@@ -374,14 +377,17 @@ class BERTopic:
 
         # Extract topics by calculating c-TF-IDF
         self._extract_topics(documents)
+        logger.info("Calculated c-TF-IDF")
 
         # Reduce topics
         if self.nr_topics:
             documents = self._reduce_topics(documents)
+            logger.info("Reduced topics")
 
         self._map_representative_docs(original_topics=True)
         probabilities = self._map_probabilities(probabilities, original_topics=True)
         predictions = documents.Topic.to_list()
+        logger.info("Done!")
 
         return predictions, probabilities
 
