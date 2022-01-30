@@ -1531,9 +1531,13 @@ class BERTopic:
             c_tf_idf: The resulting matrix giving a value (importance score) for each word per topic
         """
         documents_per_topic = documents.groupby(['Topic'], as_index=False).agg({'Document': ' '.join})
+        logger.info("Performed groupby")
         self.c_tf_idf, words = self._c_tf_idf(documents_per_topic)
+        logger.info("Performed _c_tf_idf")
         self.topics = self._extract_words_per_topic(words)
+        logger.info("Performed _extract_words_per_topic")
         self._create_topic_vectors()
+        logger.info("Performed _create_topic_vectors")
         self.topic_names = {key: f"{key}_" + "_".join([word[0] for word in values[:4]])
                             for key, values in
                             self.topics.items()}
