@@ -1656,12 +1656,16 @@ class BERTopic:
             words: The names of the words to which values were given
         """
         documents = self._preprocess_text(documents_per_topic.Document.values)
-
+        logger.info("Performed _preprocess_text")
         if fit:
             self.vectorizer_model.fit(documents)
+            logger.info("Performed vectorizer_model.fit")
+
 
         words = self.vectorizer_model.get_feature_names()
+        logger.info("Performed vectorizer_model.get_feature_names")
         X = self.vectorizer_model.transform(documents)
+        logger.info("Performed vectorizer_model.transform")
 
         if self.seed_topic_list:
             seed_topic_list = [seed for seeds in self.seed_topic_list for seed in seeds]
@@ -1671,10 +1675,14 @@ class BERTopic:
 
         if fit:
             self.transformer = ClassTFIDF().fit(X, multiplier=multiplier)
+            logger.info("Performed ClassTFIDF().fit")
 
         c_tf_idf = self.transformer.transform(X)
+        logger.info("Performed transformer.transform")
+
 
         self.topic_sim_matrix = cosine_similarity(c_tf_idf)
+        logger.info("Performed cosine_similarity")
 
         return c_tf_idf, words
 
