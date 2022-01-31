@@ -22,9 +22,11 @@ from typing import List, Tuple, Union, Mapping, Any
 try:
     from cuml.manifold import UMAP
     from cuml.cluster import HDBSCAN
+    print("using GPU-mode")
 except ImportError:
     from umap import UMAP
     from hdbscan import HDBSCAN
+    print("using CPU-mode") 
 import hdbscan
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -173,12 +175,24 @@ class BERTopic:
         self.vectorizer_model = vectorizer_model or CountVectorizer(ngram_range=self.n_gram_range)
 
         # UMAP
-        self.umap_model = umap_model or UMAP(n_neighbors=15,
+        
+        try: 
+            umap_import = UMAP(n_neighbors=15,
                                              n_components=5,
                                              min_dist=0.0,
                                              metric='cosine',
                                              low_memory=self.low_memory,
                                              verbose = self.verbose)
+            print("Using UMAP on CPU")
+        except:
+            umap_import = UMAP(n_neighbors=15,
+                                             n_components=5,
+                                             min_dist=0.0,
+                                             metric='cosine',
+                                             verbose = self.verbose)
+            print("Using UMAP on GPU")
+
+        self.umap_model = umap_model or umap_import
 
         #PCA
         self.pca_model = pca_model or PCA(n_components = 5)
